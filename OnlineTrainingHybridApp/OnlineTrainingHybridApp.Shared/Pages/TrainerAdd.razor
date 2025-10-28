@@ -1,0 +1,46 @@
+﻿@page "/trainers/add"
+@using OnlineTrainingHybridApp.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager NavManager
+@inject IJSRuntime JS
+
+<h3 class="text-success mt-4">🧑‍🏫 Join as Trainer</h3>
+
+<div class="card p-4 mt-3 shadow-sm">
+    <h5>Trainer Registration</h5>
+
+    <div class="mb-3">
+        <label>Name</label>
+        <input class="form-control" @bind="trainerForm.Name" />
+    </div>
+
+    <div class="mb-3">
+        <label>Contact Number</label>
+        <input class="form-control" @bind="trainerForm.ContactNumber" />
+    </div>
+
+    <button class="btn btn-success me-2" @onclick="SaveTrainer">Submit</button>
+    <button class="btn btn-secondary" @onclick="GoBack">Cancel</button>
+</div>
+
+@code {
+    private TrainerDTO trainerForm = new();
+
+    private async Task SaveTrainer()
+    {
+        if (string.IsNullOrWhiteSpace(trainerForm.Name))
+        {
+            await JS.InvokeVoidAsync("alert", "Please fill in your name.");
+            return;
+        }
+
+        await Http.PostAsJsonAsync("https://localhost:7093/api/trainers", trainerForm);
+        await JS.InvokeVoidAsync("alert", "🎉 Registration successful!");
+        NavManager.NavigateTo("/trainers");
+    }
+
+    private void GoBack()
+    {
+        NavManager.NavigateTo("/");
+    }
+}

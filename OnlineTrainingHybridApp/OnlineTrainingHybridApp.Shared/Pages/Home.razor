@@ -1,0 +1,193 @@
+﻿@page "/"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@using OnlineTrainingHybridApp.Shared.Models
+
+<PageTitle>Home</PageTitle>
+
+@if (courses == null || trainers == null)
+{
+    <p class="text-center mt-5">⏳ Loading data...</p>
+}
+else
+{
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 mb-4">
+                <div class="card shadow-sm p-3">
+                    <h5 class="mb-3">🔍 Search</h5>
+
+                    <!-- Real-time Search -->
+                    <input type="text"
+                           class="form-control mb-3"
+                           placeholder="Search courses or trainers..."
+                           value="@searchQuery"
+                           @oninput="OnSearchInput" />
+
+                    <hr />
+
+                    <h6>Filter by:</h6>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" id="filterAll"
+                               value="all" checked="@("all" == filterType)"
+                               @onchange="@(async (ChangeEventArgs _) => { filterType = "all"; await SearchData(); })" />
+                        <label class="form-check-label" for="filterAll">All</label>
+                    </div>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" id="filterCourses"
+                               value="courses" checked="@("courses" == filterType)"
+                              @onchange="@(async (ChangeEventArgs _) => { filterType = "courses"; await SearchData(); })" />
+                        <label class="form-check-label" for="filterCourses">Courses</label>
+                    </div>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" id="filterTrainers"
+                               value="trainers" checked="@("trainers" == filterType)"
+                               @onchange="@(async (ChangeEventArgs _) => { filterType = "trainers"; await SearchData(); })" />
+                        <label class="form-check-label" for="filterTrainers">Trainers</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9">
+                <section class="featured-courses mb-5">
+                    <h3 class="mb-4 text-center">🔥 Popular Courses</h3>
+                    <div class="row g-4">
+                        @if (filteredCourses != null && filteredCourses.Any())
+                        {
+                            @foreach (var course in filteredCourses.Take(3))
+                            {
+                                <div class="col-md-4">
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-body">
+                                            <h5 class="card-title">@course.Title</h5>
+                                            <p class="card-text">@course.Description</p>
+                                            <p class="text-muted small">Trainer: @course.TrainerName</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center">No courses found.</p>
+                        }
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <a href="/courses" class="btn btn-outline-primary btn-lg">View All Courses</a>
+                    </div>
+                </section>
+
+                <section class="text-center">
+                    <h4>👨‍🏫 Our Trainers</h4>
+                    <div class="row justify-content-center g-4 mt-3">
+                        @if (filteredTrainers != null && filteredTrainers.Any())
+                        {
+                            @foreach (var trainer in filteredTrainers.Take(3))
+                            {
+                                <div class="col-md-4">
+                                    <div class="card shadow-sm p-3">
+                                        <h5>@trainer.Name</h5>
+                                        <p>@trainer.ContactNumber</p>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">No trainers found.</p>
+                        }
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a href="/trainers" class="btn btn-outline-success btn-lg">View All Trainers</a>
+                    </div>
+
+                    <h4 class="mt-5">Become a Trainer</h4>
+                    <p>Share your skills and inspire learners around the world.</p>
+                    <a href="/trainers/add" class="btn btn-success btn-lg">Join as Trainer</a>
+                </section>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CourseDTO>? courses;
+    private List<TrainerDTO>? trainers;
+
+    private List<CourseDTO> filteredCourses = new();
+    private List<TrainerDTO> filteredTrainers = new();
+
+    private string searchQuery = string.Empty;
+    private string filterType = "all";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            courses = await Http.GetFromJsonAsync<List<CourseDTO>>("https://localhost:7093/api/courses");
+            trainers = await Http.GetFromJsonAsync<List<TrainerDTO>>("https://localhost:7093/api/trainers");
+
+            filteredCourses = courses ?? new();
+            filteredTrainers = trainers ?? new();
+
+            Console.WriteLine("✅ Data loaded successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading data: {ex}");
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? string.Empty;
+        await SearchData();
+    }
+
+    private async Task SearchData()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                filteredCourses = courses ?? new();
+                filteredTrainers = trainers ?? new();
+                return;
+            }
+
+            if (filterType == "courses" || filterType == "all")
+            {
+                filteredCourses = await Http.GetFromJsonAsync<List<CourseDTO>>(
+                    $"https://localhost:7093/api/courses/search?query={searchQuery}") ?? new();
+            }
+
+            if (filterType == "trainers" || filterType == "all")
+            {
+                filteredTrainers = await Http.GetFromJsonAsync<List<TrainerDTO>>(
+                    $"https://localhost:7093/api/trainers/search?query={searchQuery}") ?? new();
+            }
+
+            if (filterType == "courses")
+                filteredTrainers.Clear();
+            else if (filterType == "trainers")
+                filteredCourses.Clear();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Search error: {ex}");
+        }
+    }
+
+}
