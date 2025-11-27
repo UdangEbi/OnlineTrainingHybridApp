@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using OnlineTrainingHybridApp.Services;
+using OnlineTrainingHybridApp.Shared;
 using OnlineTrainingHybridApp.Shared.Services;
 
 namespace OnlineTrainingHybridApp
@@ -16,12 +17,22 @@ namespace OnlineTrainingHybridApp
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
 
-            // Add device-specific services used by the OnlineTrainingHybridApp.Shared project
+            // Blazor WebView untuk MAUI Hybrid
+            builder.Services.AddMauiBlazorWebView();
+
+            // Service device-specific yang sudah ada
             builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
-            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7093/") });
+            // ✅ HttpClient untuk semua komponen Blazor & service (Shared)
+            //    @inject HttpClient Http akan memakai instance ini
+            builder.Services.AddSingleton(sp =>
+                new HttpClient
+                {
+                    BaseAddress = new Uri("https://localhost:7093/") // SESUAI backend kamu
+                });
 
-            builder.Services.AddMauiBlazorWebView();
+            // ✅ Service kamera + upload (MediaPicker + HttpClient)
+            builder.Services.AddSingleton<IPhotoService, PhotoService>();
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();

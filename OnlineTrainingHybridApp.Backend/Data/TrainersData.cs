@@ -53,7 +53,7 @@ namespace OnlineTrainingHybridApp.Backend.Data
 
             existing.Name = trainer.Name;
             existing.ContactNumber = trainer.ContactNumber;
-            existing.Courses = trainer.Courses;
+            existing.PhotoUrl = trainer.PhotoUrl;   // ⬅️ UPDATE URL FOTO
 
             await _context.SaveChangesAsync();
             return existing;

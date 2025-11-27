@@ -12,5 +12,6 @@ namespace OnlineTrainingHybridApp.Shared.Models
         public string Name { get; set; }
         public string ContactNumber { get; set; }
         public ICollection<Courses>? Courses { get; set; }
+        public string? PhotoUrl { get; set; }
     }
 }

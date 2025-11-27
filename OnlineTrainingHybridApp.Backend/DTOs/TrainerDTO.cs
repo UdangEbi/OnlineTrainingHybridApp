@@ -8,5 +8,6 @@
 
         // Menampilkan jumlah course yang diajar
         public int TotalCourses { get; set; }
+        public string? PhotoUrl { get; set; }
     }
 }

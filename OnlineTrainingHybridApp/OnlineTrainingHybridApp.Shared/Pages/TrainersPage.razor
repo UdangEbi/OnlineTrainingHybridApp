@@ -1,8 +1,11 @@
 ﻿@page "/trainers"
-@using OnlineTrainingHybridApp.Shared.Models
+@using OnlineTrainingHybridApp.Shared.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@using OnlineTrainingHybridApp.Shared.Services
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject NavigationManager NavManager
+@inject IPhotoService PhotoService
 
 <h3 class="mt-4 mb-3 text-success">Trainers Management</h3>
 
@@ -24,6 +27,7 @@ else
     <table class="table table-striped table-bordered">
         <thead class="table-light">
             <tr>
+                <th>Photo</th>
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Total Courses</th>
@@ -34,6 +38,16 @@ else
             @foreach (var t in filteredTrainers)
             {
                 <tr>
+                    <td>
+                        @if (!string.IsNullOrEmpty(t.PhotoUrl))
+                        {
+                            <img src="@t.PhotoUrl" alt="@t.Name" width="70" height="70" class="rounded-circle" />
+                        }
+                        else
+                        {
+                            <span class="text-muted fst-italic">No photo</span>
+                        }
+                    </td>
                     <td>@t.Name</td>
                     <td>@t.ContactNumber</td>
                     <td>@t.TotalCourses</td>
@@ -49,7 +63,7 @@ else
 
 @if (showForm)
 {
-    <div class="card p-4 mt-3">
+    <div class="card p-4 mt-3 shadow-sm">
         <h5>@(isEdit ? "Edit Trainer" : "Add Trainer")</h5>
 
         <div class="mb-3">
@@ -60,6 +74,31 @@ else
         <div class="mb-3">
             <label>Contact Number</label>
             <input class="form-control" @bind="trainerForm.ContactNumber" />
+        </div>
+
+        <div class="mb-3">
+            <label>Profile Photo</label>
+
+            <!-- 📁 Upload file dari laptop -->
+            <InputFile OnChange="OnFileSelected"
+                       class="form-control mb-2"
+                       accept="image/*" />
+
+            <!-- 📷 Ambil foto dengan kamera (MediaPicker MAUI) -->
+            <button type="button"
+                    class="btn btn-outline-primary btn-sm mb-2"
+                    @onclick="CaptureWithMauiCamera">
+                📷 Take Photo
+            </button>
+
+            @if (!string.IsNullOrEmpty(previewImageUrl))
+            {
+                <div class="mt-2">
+                    <span><b>Preview:</b></span><br />
+                    <img src="@previewImageUrl" alt="Preview" width="120"
+                         class="mt-1 rounded shadow-sm" />
+                </div>
+            }
         </div>
 
         <button class="btn btn-success me-2" @onclick="SaveTrainer">Save</button>
@@ -76,7 +115,11 @@ else
     private bool isEdit = false;
     private TrainerDTO trainerForm = new();
 
-    // Properti untuk search realtime
+    // Upload-related
+    private IBrowserFile? selectedFile;
+    private string? previewImageUrl;
+
+    // Real-time search property
     private string SearchTerm
     {
         get => searchTerm;
@@ -108,6 +151,7 @@ else
     private void ShowAddForm()
     {
         trainerForm = new TrainerDTO();
+        previewImageUrl = null;
         isEdit = false;
         showForm = true;
     }
@@ -118,13 +162,64 @@ else
         {
             TrainerId = t.TrainerId,
             Name = t.Name,
-            ContactNumber = t.ContactNumber
+            ContactNumber = t.ContactNumber,
+            TotalCourses = t.TotalCourses,
+            PhotoUrl = t.PhotoUrl
         };
+        previewImageUrl = t.PhotoUrl;
         isEdit = true;
         showForm = true;
     }
 
     private void CancelForm() => showForm = false;
+
+    /// <summary>
+    /// Upload file gambar dari laptop (InputFile) ke API /api/Main/uploadfile
+    /// </summary>
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        if (selectedFile == null) return;
+
+        using var content = new MultipartFormDataContent();
+        var stream = selectedFile.OpenReadStream(maxAllowedSize: 10_000_000);
+
+        // nama field HARUS "file" untuk cocok dengan IFormFile file di MainController
+        content.Add(new StreamContent(stream), "file", selectedFile.Name);
+
+        var response = await Http.PostAsync("https://localhost:7093/api/Main/uploadfile", content);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+            trainerForm.PhotoUrl = result?.Url;
+            previewImageUrl = result?.Url;
+        }
+        else
+        {
+            var errorText = await response.Content.ReadAsStringAsync();
+            await JS.InvokeVoidAsync("alert",
+                $"Failed to upload image!\n{(int)response.StatusCode} {response.StatusCode}\n{errorText}");
+        }
+    }
+
+    /// <summary>
+    /// Ambil foto via kamera (MediaPicker MAUI) dan upload ke API, lalu set PhotoUrl.
+    /// </summary>
+    private async Task CaptureWithMauiCamera()
+    {
+        // endpoint upload di backend
+        var uploadUrl = "https://localhost:7093/api/Main/uploadfile";
+
+        var url = await PhotoService.CaptureAndUploadPhotoAsync(uploadUrl);
+
+        if (!string.IsNullOrEmpty(url))
+        {
+            trainerForm.PhotoUrl = url;
+            previewImageUrl = url;
+            StateHasChanged();
+        }
+    }
 
     private async Task SaveTrainer()
     {
@@ -172,5 +267,12 @@ else
     private void GoHome()
     {
         NavManager.NavigateTo("/");
+    }
+
+    // Upload result DTO (sesuai response { url = "..." })
+    public class UploadResult
+    {
+        public string? FileName { get; set; }
+        public string? Url { get; set; }
     }
 }

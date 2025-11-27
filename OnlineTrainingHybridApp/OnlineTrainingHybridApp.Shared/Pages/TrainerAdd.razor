@@ -19,24 +19,121 @@
         <input class="form-control" @bind="trainerForm.ContactNumber" />
     </div>
 
-    <button class="btn btn-success me-2" @onclick="SaveTrainer">Submit</button>
-    <button class="btn btn-secondary" @onclick="GoBack">Cancel</button>
+    <!-- 1. FIELD INPUT FILE BARU -->
+    <div class="mb-3">
+        <label>Profile Photo</label>
+        <InputFile OnChange="HandleFileSelection" class="form-control" />
+        @if (!string.IsNullOrEmpty(uploadStatus))
+        {
+            <small class="text-danger">@uploadStatus</small>
+        }
+        @if (!string.IsNullOrEmpty(trainerForm.PhotoUrl))
+        {
+            <small class="text-success">Photo selected: @trainerForm.PhotoUrl</small>
+        }
+    </div>
+
+    <button class="btn btn-success me-2" @onclick="SaveTrainer" disabled="@isSaving">
+        @if (isSaving)
+        {
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <span>Submitting...</span> <!-- PERBAIKAN SINTAKSIS DI SINI -->
+        }
+        else
+        {
+            <span>Submit</span>
+        }
+    </button>
+    <button class="btn btn-secondary" @onclick="GoBack" disabled="@isSaving">Cancel</button>
 </div>
 
 @code {
     private TrainerDTO trainerForm = new();
+    private IBrowserFile selectedFile;
+    private string uploadStatus = string.Empty;
+    private bool isSaving = false;
 
+    // --- LOGIKA FILE UPLOAD BARU ---
+    
+    // 2. Menangkap file yang dipilih
+    private void HandleFileSelection(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadStatus = string.Empty;
+        trainerForm.PhotoUrl = null; // Reset URL saat file baru dipilih
+    }
+
+    // 3. Mengupload file ke API terpisah
+    private async Task<string> UploadFileAsync()
+    {
+        if (selectedFile == null)
+            return null; // Tidak ada file yang dipilih
+
+        var content = new MultipartFormDataContent();
+        // File harus dikirim sebagai 'file' karena Controller API mengharapkan IFormFile bernama 'file'
+        content.Add(new StreamContent(selectedFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024)),
+                    "file", 
+                    selectedFile.Name);
+
+        // Mengirim ke API UploadFile (yang kita buat sebelumnya)
+        // Kita menggunakan HTTP 5019 untuk menghindari masalah SSL (sesuai MainController.cs)
+        var uploadResponse = await Http.PostAsync("http://localhost:5019/api/main/uploadfile", content);
+
+        if (!uploadResponse.IsSuccessStatusCode)
+        {
+            var errorDetail = await uploadResponse.Content.ReadAsStringAsync();
+            uploadStatus = $"Upload failed! Server responded with status {uploadResponse.StatusCode}. Details: {errorDetail}";
+            return "ERROR";
+        }
+        
+        // Memparsing JSON hasil upload untuk mendapatkan URL
+        var jsonResponse = await uploadResponse.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        return jsonResponse["url"]; // Mengembalikan URL file yang disimpan di server
+    }
+
+    // --- LOGIKA UTAMA SAVE TRAINER ---
     private async Task SaveTrainer()
     {
-        if (string.IsNullOrWhiteSpace(trainerForm.Name))
+        isSaving = true;
+        try
         {
-            await JS.InvokeVoidAsync("alert", "Please fill in your name.");
-            return;
-        }
+            if (string.IsNullOrWhiteSpace(trainerForm.Name))
+            {
+                // NOTE: Penggunaan alert() dilarang dalam panduan utama. Ganti dengan modal/message box jika ini bukan Blazor Hybrid.
+                // Karena ini Blazor Hybrid, alert() masih ditoleransi di lingkungan tertentu.
+                await JS.InvokeVoidAsync("alert", "Please fill in your name.");
+                return;
+            }
 
-        await Http.PostAsJsonAsync("https://localhost:7093/api/trainers", trainerForm);
-        await JS.InvokeVoidAsync("alert", "🎉 Registration successful!");
-        NavManager.NavigateTo("/trainers");
+            // 4. Proses Upload Foto terlebih dahulu
+            string photoUrl = await UploadFileAsync();
+            
+            if (photoUrl == "ERROR")
+            {
+                // Upload gagal, tampilkan status error
+                await JS.InvokeVoidAsync("alert", $"❌ Registration failed due to photo upload error: {uploadStatus}");
+                return;
+            }
+
+            // Simpan URL foto ke TrainerDTO sebelum mengirim ke database
+            trainerForm.PhotoUrl = photoUrl;
+            
+            // Mengirim data Trainer (termasuk URL foto)
+            // Kita menggunakan port HTTPS 7093 untuk komunikasi data (sesuai default HttpClient)
+            await Http.PostAsJsonAsync("https://localhost:7093/api/trainers", trainerForm);
+            
+            await JS.InvokeVoidAsync("alert", "🎉 Registration successful!");
+            NavManager.NavigateTo("/trainers");
+        }
+        catch (Exception ex)
+        {
+            // Tangani error jika koneksi API ke /api/trainers gagal
+            await JS.InvokeVoidAsync("alert", $"❌ Registration failed: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 
     private void GoBack()

@@ -1,7 +1,7 @@
 ﻿@page "/"
 @using System.Net.Http.Json
 @inject HttpClient Http
-@using OnlineTrainingHybridApp.Shared.Models
+@using OnlineTrainingHybridApp.Shared.DTOs
 
 <PageTitle>Home</PageTitle>
 
@@ -63,10 +63,22 @@ else
                             {
                                 <div class="col-md-4">
                                     <div class="card h-100 shadow-sm">
+
+                                        @* ✅ Tampilkan cover kalau ada *@
+                                        @if (!string.IsNullOrEmpty(course.CoverImage))
+                                        {
+                                            <img src="@course.CoverImage"
+                                                 class="card-img-top"
+                                                 style="height:180px;object-fit:cover;" />
+                                        }
+
                                         <div class="card-body">
                                             <h5 class="card-title">@course.Title</h5>
                                             <p class="card-text">@course.Description</p>
-                                            <p class="text-muted small">Trainer: @course.TrainerName</p>
+                                            <p class="text-muted small">
+                                                Trainer: @course.TrainerName<br />
+                                                Duration: @course.Duration hour(s) · @course.Level
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -83,6 +95,7 @@ else
                     </div>
                 </section>
 
+
                 <section class="text-center">
                     <h4>👨‍🏫 Our Trainers</h4>
                     <div class="row justify-content-center g-4 mt-3">
@@ -92,7 +105,22 @@ else
                             {
                                 <div class="col-md-4">
                                     <div class="card shadow-sm p-3">
-                                        <h5>@trainer.Name</h5>
+                                        @if (!string.IsNullOrEmpty(trainer.PhotoUrl))
+                                        {
+                                            <img src="@trainer.PhotoUrl"
+                                                 class="rounded-circle mx-auto d-block"
+                                                 style="width:80px;height:80px;object-fit:cover;" />
+                                        }
+                                        else
+                                        {
+                                            <div class="rounded-circle bg-light mx-auto d-flex
+                                                        align-items-center justify-content-center"
+                                                 style="width:80px;height:80px;">
+                                                <span class="text-muted small">No photo</span>
+                                            </div>
+                                        }
+
+                                        <h5 class="mt-3">@trainer.Name</h5>
                                         <p>@trainer.ContactNumber</p>
                                     </div>
                                 </div>

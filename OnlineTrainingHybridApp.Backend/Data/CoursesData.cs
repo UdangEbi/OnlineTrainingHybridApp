@@ -44,6 +44,17 @@ namespace OnlineTrainingHybridApp.Backend.Data
 
         public async Task<Courses> AddCourse(Courses course)
         {
+            Console.WriteLine($"[REPO] course.TrainerId = {course.TrainerId}");
+
+            // Cek: apakah trainer dengan ID itu benar-benar ada?
+            var trainerExists = await _context.Trainers
+                .AnyAsync(t => t.TrainerId == course.TrainerId);
+
+            if (!trainerExists)
+            {
+                throw new Exception($"[REPO] Trainer dengan ID {course.TrainerId} tidak ditemukan di tabel Trainers.");
+            }
+
             _context.Courses.Add(course);
             await _context.SaveChangesAsync();
             return course;
@@ -55,9 +66,13 @@ namespace OnlineTrainingHybridApp.Backend.Data
             if (existing == null)
                 return null;
 
+            // update SEMUA field yang boleh diubah
             existing.Title = course.Title;
             existing.Description = course.Description;
+            existing.Duration = course.Duration;
+            existing.Level = course.Level;
             existing.TrainerId = course.TrainerId;
+            existing.CoverImage = course.CoverImage;   // ⬅️ INI YANG PENTING
 
             await _context.SaveChangesAsync();
             return existing;

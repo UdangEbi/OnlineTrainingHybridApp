@@ -1,5 +1,6 @@
 using OnlineTrainingHybridApp.Shared.Services;
 
+
 namespace OnlineTrainingHybridApp.Web.Services
 {
     public class FormFactor : IFormFactor

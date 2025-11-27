@@ -12,5 +12,6 @@ namespace OnlineTrainingHybridApp.Backend.Models
         public string Description { get; set; } = string.Empty;
         public int TrainerId { get; set; }
         public Trainers? Trainer { get; set; }
+        public string? CoverImage { get; set; }
     }
 }

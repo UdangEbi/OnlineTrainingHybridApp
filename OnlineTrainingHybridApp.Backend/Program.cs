@@ -1,43 +1,58 @@
-using OnlineTrainingHybridApp.Backend.Data;
+﻿using OnlineTrainingHybridApp.Backend.Data;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
+// Add services
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // ? Solusi utama: mencegah loop antar objek
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.WriteIndented = true;
     });
 
 builder.Services.AddSqlite<OnlineTrainingContext>("Data Source=OnlineTraining.db");
 
-//add DI for services
+// Dependency Injection
 builder.Services.AddScoped<ICourses, CoursesData>();
 builder.Services.AddScoped<ITrainers, TrainersData>();
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// CORS (supaya Blazor Hybrid bisa akses API)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+// Batasi ukuran upload (10 MB)
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 10 * 1024 * 1024;
+});
+
+// ✅ Swagger configuration
+builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("AllowAll");
+app.UseStaticFiles();
 app.UseAuthorization();
-
 app.MapControllers();
 
-var scopeFactory = app.Services.GetRequiredService<IServiceScopeFactory>();
-using (var scope = scopeFactory.CreateScope())
+// Seed database
+using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<OnlineTrainingContext>();
     SeedData.Initialize(db);

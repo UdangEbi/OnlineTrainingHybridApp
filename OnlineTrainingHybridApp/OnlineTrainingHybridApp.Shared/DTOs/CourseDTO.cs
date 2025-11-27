@@ -8,7 +8,8 @@
         public int Duration { get; set; }
         public string Level { get; set; } = "Beginner";
 
-        public int TrainerId { get; set; }
+        public int TrainerId { get; set; }          // ⬅️ WAJIB ADA
         public string? TrainerName { get; set; }
+        public string? CoverImage { get; set; }
     }
 }
